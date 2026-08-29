@@ -141,3 +141,13 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# LinkedIn Storage State / Auth Sessions
+session.json
+*session*.json
+*storage-state*.json
+linkedin-auth.json
+*.session.json
+
+# Build output
+dist/

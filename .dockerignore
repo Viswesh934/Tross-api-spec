@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.github
+.env
+.env.*
+session.json
+*session*.json
+*storage-state*.json
+linkedin-auth.json
+*.log
+npm-debug.log*
+.DS_Store
