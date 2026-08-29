@@ -1,0 +1,275 @@
+openapi: 3.1.0
+info:
+  title: LinkedIn Profile Scraper API
+  version: 1.0.0
+  description: A fast, structured REST API for extracting standardized LinkedIn profile data using Hono, Playwright, and TypeScript.
+  contact:
+    name: API Support
+    url: https://github.com/Viswesh934/Tross-api-spec
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: /
+    description: Current Host
+  - url: http://localhost:3000
+    description: Local Development Server
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns service readiness, timestamp, and active configuration.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /v1/profile:
+    post:
+      summary: Scrape LinkedIn Profile
+      description: Extracts and normalizes profile data from a LinkedIn profile URL.
+      operationId: scrapeProfile
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+            example:
+              url: "https://www.linkedin.com/in/mark-zuckerberg-618bba58/"
+      responses:
+        '200':
+          description: Successful extraction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileSuccessResponse'
+        '400':
+          description: Invalid request or malformed URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Scraping error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        service:
+          type: string
+          example: linkedin-profile-api
+        timestamp:
+          type: string
+          format: date-time
+        config:
+          type: object
+          properties:
+            storageStateConfigured:
+              type: boolean
+            apiKeyConfigured:
+              type: boolean
+            maxConcurrency:
+              type: integer
+    ProfileRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://www.linkedin.com/in/williamhgates/"
+    ProfileExperience:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        employmentType:
+          type: string
+          nullable: true
+        duration:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          nullable: true
+        endDate:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    ProfileEducation:
+      type: object
+      properties:
+        school:
+          type: string
+          nullable: true
+        degree:
+          type: string
+          nullable: true
+        fieldOfStudy:
+          type: string
+          nullable: true
+        duration:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          nullable: true
+        endDate:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    ProfileCertification:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        issuer:
+          type: string
+          nullable: true
+        issueDate:
+          type: string
+          nullable: true
+        expirationDate:
+          type: string
+          nullable: true
+        credentialId:
+          type: string
+          nullable: true
+        credentialUrl:
+          type: string
+          nullable: true
+    ProfileLanguage:
+      type: object
+      properties:
+        language:
+          type: string
+          nullable: true
+        proficiency:
+          type: string
+          nullable: true
+    LinkedInProfile:
+      type: object
+      required:
+        - url
+        - experience
+        - education
+        - skills
+        - certifications
+        - languages
+      properties:
+        url:
+          type: string
+        name:
+          type: string
+          nullable: true
+        headline:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        about:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        experience:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileExperience'
+        education:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileEducation'
+        skills:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileCertification'
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileLanguage'
+    ProfileSuccessResponse:
+      type: object
+      required:
+        - success
+        - profile
+      properties:
+        success:
+          type: boolean
+          example: true
+        profile:
+          $ref: '#/components/schemas/LinkedInProfile'
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: array
+          items:
+            type: object

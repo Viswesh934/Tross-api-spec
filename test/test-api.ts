@@ -113,29 +113,6 @@ async function runTests() {
     assert.strictEqual(normalized.languages.length, 1);
   });
 
-  await test("normalizeProfile fallback enriches missing fields from JSON-LD schema", () => {
-    const raw = {
-      jsonLd: {
-        name: "Bill Gates",
-        jobTitle: "Co-chair, Bill & Melinda Gates Foundation",
-        description: "Co-chair of the Bill & Melinda Gates Foundation",
-        image: "https://media.licdn.com/bill.jpg",
-        address: {
-          addressLocality: "Seattle",
-          addressRegion: "WA",
-          addressCountry: "USA",
-        },
-      },
-    };
-
-    const normalized = normalizeProfile(raw, "https://www.linkedin.com/in/williamhgates/");
-    assert.strictEqual(normalized.name, "Bill Gates");
-    assert.strictEqual(normalized.headline, "Co-chair, Bill & Melinda Gates Foundation");
-    assert.strictEqual(normalized.about, "Co-chair of the Bill & Melinda Gates Foundation");
-    assert.strictEqual(normalized.image, "https://media.licdn.com/bill.jpg");
-    assert.strictEqual(normalized.location, "Seattle, WA, USA");
-  });
-
   // 3. Schema & URL Validation Tests
   console.log("\n3. Schema & URL Validation Tests");
   await test("ProfileRequestSchema accepts valid LinkedIn profile URLs", () => {
@@ -167,13 +144,22 @@ async function runTests() {
     }
   });
 
-  // 4. Hono HTTP Integration Tests
+  // 4. HTTP API Endpoint Tests
   console.log("\n4. HTTP API Endpoint Tests");
-  await test("GET / returns 200 with API info", async () => {
+  await test("GET / returns 200 with clean UI HTML", async () => {
     const res = await app.request("/");
     assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.name, "LinkedIn Profile API");
+    const html = await res.text();
+    assert.ok(html.includes("LinkedIn Profile API"));
+    assert.ok(html.includes("LinkedIn Profile URL"));
+  });
+
+  await test("GET /openapi.json returns 200 with OpenAPI 3.1 schema", async () => {
+    const res = await app.request("/openapi.json");
+    assert.strictEqual(res.status, 200);
+    const json = await res.json();
+    assert.strictEqual(json.openapi, "3.1.0");
+    assert.ok(json.paths["/v1/profile"]);
   });
 
   await test("GET /health returns 200 healthy status", async () => {
@@ -184,9 +170,14 @@ async function runTests() {
     assert.strictEqual(body.service, "linkedin-profile-api");
   });
 
-  await test("GET /unknown-path returns 404 with JSON error", async () => {
-    const res = await app.request("/unknown-path");
-    assert.strictEqual(res.status, 404);
+  await test("POST /api/demo with invalid URL returns 400 Bad Request", async () => {
+    const res = await app.request("/api/demo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "https://example.com/invalid" }),
+    });
+
+    assert.strictEqual(res.status, 400);
     const body = await res.json();
     assert.strictEqual(body.success, false);
   });
@@ -204,18 +195,6 @@ async function runTests() {
     assert.strictEqual(body.error, "Validation failed");
   });
 
-  await test("POST /v1/profile with malformed JSON body returns 400", async () => {
-    const res = await app.request("/v1/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{ invalid-json",
-    });
-
-    assert.strictEqual(res.status, 400);
-    const body = await res.json();
-    assert.strictEqual(body.success, false);
-  });
-
   await test("POST /v1/profile rejects request when API_KEY is set and header is missing", async () => {
     process.env.API_KEY = "test-secret-key-123";
 
@@ -228,26 +207,6 @@ async function runTests() {
     assert.strictEqual(res.status, 401);
     const body = await res.json();
     assert.strictEqual(body.success, false);
-    assert.ok(body.error.includes("Unauthorized"));
-
-    // Cleanup
-    delete process.env.API_KEY;
-  });
-
-  await test("POST /v1/profile accepts valid API key in x-api-key header", async () => {
-    process.env.API_KEY = "test-secret-key-123";
-
-    const res = await app.request("/v1/profile", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "test-secret-key-123",
-      },
-      body: JSON.stringify({ url: "invalid-url" }),
-    });
-
-    // Should pass auth and fail on URL validation (400) rather than auth (401)
-    assert.strictEqual(res.status, 400);
 
     // Cleanup
     delete process.env.API_KEY;

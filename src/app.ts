@@ -2,6 +2,10 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { profileRoute } from "./routes/profile.js";
+import { openApiSpec } from "./docs/openapi.js";
+import { renderDocsHtml } from "./docs/ui.js";
+import { ProfileRequestSchema } from "./schemas/profile.js";
+import { scrapeLinkedInProfile, ScrapeError } from "./linkedin/scraper.js";
 
 export const app = new Hono();
 
@@ -9,18 +13,64 @@ export const app = new Hono();
 app.use("*", logger());
 app.use("*", cors());
 
-// Root / API info endpoint
+// UI Demo page
 app.get("/", (c) => {
-  return c.json({
-    name: "LinkedIn Profile API",
-    version: "1.0.0",
-    description: "Structured LinkedIn Profile Scraper API",
-    endpoints: {
-      health: "GET /health",
-      profile: "POST /v1/profile",
-    },
-    documentation: "https://github.com/Viswesh934/Tross-api-spec#readme",
-  });
+  return c.html(renderDocsHtml());
+});
+
+app.get("/docs", (c) => {
+  return c.html(renderDocsHtml());
+});
+
+// UI Demo submission endpoint (server-side authenticated execution for demo UI)
+app.post("/api/demo", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ success: false, error: "Invalid JSON request body" }, 400);
+  }
+
+  const parseResult = ProfileRequestSchema.safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      {
+        success: false,
+        error: "Validation failed",
+        details: parseResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      },
+      400
+    );
+  }
+
+  const { url } = parseResult.data;
+
+  try {
+    const profile = await scrapeLinkedInProfile(url);
+    return c.json({ success: true, profile }, 200);
+  } catch (err: any) {
+    console.error(`[DemoRoute] Error scraping profile (${url}):`, err);
+
+    if (err instanceof ScrapeError) {
+      return c.json({ success: false, error: err.message, code: err.code }, err.statusCode as any);
+    }
+
+    return c.json(
+      {
+        success: false,
+        error: err.message || "An unexpected error occurred while scraping the LinkedIn profile.",
+      },
+      500
+    );
+  }
+});
+
+// OpenAPI 3.1.0 JSON Specification endpoint
+app.get("/openapi.json", (c) => {
+  return c.json(openApiSpec);
 });
 
 // Health check endpoint
@@ -40,7 +90,7 @@ app.get("/health", (c) => {
   });
 });
 
-// Mount /v1/profile route
+// Mount /v1/profile route (API Key protected)
 app.route("/v1/profile", profileRoute);
 
 // 404 Handler

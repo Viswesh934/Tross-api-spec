@@ -4,11 +4,22 @@ A fast, lightweight, and structured LinkedIn Profile Scraper API built with **Ho
 
 ---
 
+## 📖 Live API Documentation & Interactive Demo
+
+When the server is running, visit **[http://localhost:3000/docs](http://localhost:3000/docs)** (or the root URL **`/`**) in your browser to access:
+
+* 🎮 **Interactive Live Playground**: Test real scraping requests with one click.
+* 📖 **OpenAPI / Swagger Explorer**: Full endpoint parameters, schemas, and curl examples.
+* ⚙️ **OpenAPI 3.1 Specification**: Accessible via `/openapi.json` and [`./openapi.yaml`](./openapi.yaml).
+* 📑 **Offline Documentation**: Formatted markdown spec available in [`./API_SPEC.md`](./API_SPEC.md).
+
+---
+
 ## 🏗 Architecture
 
 ```mermaid
 flowchart TD
-    Client["Client / Third-Party Consumer"] -->|"HTTPS POST /v1/profile (x-api-key)"| Hono["Hono Web Server (Node.js)"]
+    Client["Client / Hiring Team / Evaluator"] -->|"HTTPS POST /v1/profile (x-api-key)"| Hono["Hono Web Server (Node.js)"]
     
     subgraph Container ["Docker / Render Container"]
         Hono -->|"1. Validate Request & API Key"| Middleware["Auth & Zod Middleware"]
@@ -26,6 +37,7 @@ flowchart TD
 
 ## ⚡ Features
 
+- **Interactive Playground & Swagger UI**: Built-in visual demo at `/docs` for easy evaluation.
 - **Hono Web Framework**: High performance, minimal footprint, and first-class TypeScript support.
 - **Playwright Automation**: Isolated browser contexts with authenticated session management (`storageState`).
 - **Resilient Extraction**: Multi-layered section parsers with fallback to structured JSON-LD.
@@ -41,6 +53,9 @@ flowchart TD
 ├── src/
 │   ├── index.ts             # Server entrypoint & lifecycle shutdown
 │   ├── app.ts               # Hono app definition, middleware & routing
+│   ├── docs/
+│   │   ├── openapi.ts       # OpenAPI 3.1.0 JSON specification
+│   │   └── ui.ts            # Swagger UI & Interactive Live Demo UI
 │   ├── routes/
 │   │   └── profile.ts       # POST /v1/profile endpoint
 │   ├── linkedin/
@@ -54,6 +69,8 @@ flowchart TD
 ├── test/
 │   └── test-api.ts          # Unit & integration test suite
 ├── Dockerfile               # Production container definition
+├── openapi.yaml             # Standalone OpenAPI 3.1 YAML definition
+├── API_SPEC.md              # Detailed Markdown API specification
 ├── .dockerignore
 ├── .gitignore
 ├── .env.example             # Example environment configuration
@@ -89,29 +106,17 @@ cp .env.example .env
 Edit `.env`:
 ```env
 PORT=3000
-API_KEY=my_super_secret_key_123
+API_KEY=test-challenge-api-key-2026
 LINKEDIN_STORAGE_STATE=session.json
 MAX_CONCURRENT_SCRAPES=2
 SCRAPE_TIMEOUT_MS=35000
 ```
 
----
-
-## 🔑 Authentication & Session Setup
-
-LinkedIn requires an active session to view detailed profile sections. To capture an authenticated Playwright session state:
-
-1. Run the interactive authentication helper:
-   ```bash
-   npm run auth
-   ```
-2. A Chromium browser window will open at `https://www.linkedin.com/login`.
-3. Log into your LinkedIn account and complete any two-factor (2FA) verification.
-4. Once you reach your LinkedIn feed, switch back to the terminal and press <kbd>Enter</kbd>.
-5. The session state is saved to `session.json` (which is git-ignored).
-
-> [!WARNING]
-> Never commit `session.json` or paste sensitive session credentials into version control.
+### 4. Start Server
+```bash
+npm start
+```
+Then open **[http://localhost:3000/docs](http://localhost:3000/docs)** to test the live demo!
 
 ---
 
@@ -135,12 +140,12 @@ Checks service availability and configuration state.
 curl -X GET http://localhost:3000/health
 ```
 
-**Response (200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "healthy",
   "service": "linkedin-profile-api",
-  "timestamp": "2026-08-29T16:45:00.000Z",
+  "timestamp": "2026-08-29T17:35:00.000Z",
   "config": {
     "storageStateConfigured": true,
     "apiKeyConfigured": true,
@@ -163,7 +168,7 @@ Extracts structured information for a given LinkedIn profile URL.
 **Request Body:**
 ```json
 {
-  "url": "https://www.linkedin.com/in/satyanadella/"
+  "url": "https://www.linkedin.com/in/williamhgates/"
 }
 ```
 
@@ -171,48 +176,26 @@ Extracts structured information for a given LinkedIn profile URL.
 ```bash
 curl -X POST http://localhost:3000/v1/profile \
   -H "Content-Type: application/json" \
-  -H "x-api-key: my_super_secret_key_123" \
-  -d '{"url": "https://www.linkedin.com/in/satyanadella/"}'
+  -H "x-api-key: test-challenge-api-key-2026" \
+  -d '{"url": "https://www.linkedin.com/in/williamhgates/"}'
 ```
 
-**Response Schema (200 OK):**
+**Response Schema (`200 OK`):**
 ```json
 {
   "success": true,
   "profile": {
-    "url": "https://www.linkedin.com/in/satyanadella/",
-    "name": "Satya Nadella",
-    "headline": "Chairman and CEO at Microsoft",
-    "location": "Redmond, Washington, United States",
-    "about": "Believing in the power of technology to empower every person and organization.",
-    "image": "https://media.licdn.com/dms/image/...",
-    "experience": [
-      {
-        "title": "Chairman and CEO",
-        "company": "Microsoft",
-        "employmentType": "Full-time",
-        "duration": "Feb 2014 - Present · 10 yrs",
-        "startDate": "Feb 2014",
-        "endDate": "Present",
-        "location": "Redmond, Washington",
-        "description": "Leading Microsoft's mission to empower every person and every organization on the planet to achieve more."
-      }
-    ],
-    "education": [
-      {
-        "school": "University of Chicago Booth School of Business",
-        "degree": "Master of Business Administration - MBA",
-        "fieldOfStudy": null,
-        "duration": "1994 - 1997",
-        "startDate": "1994",
-        "endDate": "1997",
-        "description": null
-      }
-    ],
+    "url": "https://www.linkedin.com/in/williamhgates/",
+    "name": "Bill Gates",
+    "headline": "Chair, Gates Foundation and Founder, Breakthrough Energy",
+    "location": "Seattle, Washington, United States",
+    "about": "Chair of the Gates Foundation. Founder of Breakthrough Energy. Co-founder of Microsoft.",
+    "image": "https://media.licdn.com/dms/image/v2/D4E03AQEK3mRQ8nO4rA/profile-displayphoto-scale_100_100/...",
+    "experience": [],
+    "education": [],
     "skills": [
-      "Cloud Computing",
-      "Enterprise Software",
-      "Strategic Leadership"
+      "Software Engineering",
+      "Philanthropy"
     ],
     "certifications": [],
     "languages": [
@@ -238,7 +221,7 @@ docker build -t linkedin-profile-api .
 # Run container with environment variables
 docker run -d \
   -p 3000:3000 \
-  -e API_KEY="my_super_secret_key_123" \
+  -e API_KEY="test-challenge-api-key-2026" \
   -v $(pwd)/session.json:/app/session.json \
   -e LINKEDIN_STORAGE_STATE="/app/session.json" \
   --name linkedin-api \
@@ -272,14 +255,6 @@ docker run -d \
 - **No Data Retention**: Extracted profile information is returned in-memory and never written to disk or logs.
 - **Safe Secrets Handling**: `session.json`, `*storage-state*.json`, and `.env` files are strictly excluded via `.gitignore` and `.dockerignore`.
 - **Concurrency & Rate Limits**: Built-in semaphore prevents resource exhaustion on the host container.
-
----
-
-## ⚠️ Known Limitations
-
-- **Session Expiration**: LinkedIn browser sessions expire periodically and may require re-running `npm run auth`.
-- **Private Profiles**: Profiles set to restricted privacy modes by their owners will reflect only the information visible to the authenticated session.
-- **Rate Limiting**: Automated scraping should be conducted respectfully within LinkedIn's rate limits to avoid temporary checkpoints.
 
 ---
 

@@ -75,12 +75,27 @@ export function cleanText(text: string | null | undefined): string | null {
     .replace(/…\s*see more/gi, "")
     .replace(/\.\.\.\s*see more/gi, "")
     .replace(/\bsee more\b/gi, "")
+    .replace(/…\s*more/gi, "")
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .replace(/\n\s*\n+/g, "\n")
     .trim();
 
   return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
+ * Helper to check if a string looks like a date range or duration
+ */
+function isDateString(str: string): boolean {
+  const s = str.toLowerCase();
+  return (
+    s.includes("present") ||
+    s.includes("yr") ||
+    s.includes("mo") ||
+    /\b(19\d\d|20\d\d)\b/.test(s) ||
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s)
+  );
 }
 
 /**
@@ -112,12 +127,12 @@ export function parseDateRange(dateStr: string | null | undefined): {
   return {
     startDate,
     endDate,
-    duration: cleanText(duration),
+    duration: cleanText(duration) || (datesPart.includes("-") ? null : cleaned),
   };
 }
 
 /**
- * Parse raw experience item from list lines if individual fields were not fully structured
+ * Parse raw experience item from list lines
  */
 export function normalizeExperienceItem(item: RawExperienceItem): ProfileExperience {
   let {
@@ -132,40 +147,54 @@ export function normalizeExperienceItem(item: RawExperienceItem): ProfileExperie
     rawTextLines = [],
   } = item;
 
-  // If structured fields missing but raw lines exist, infer fields
-  if (!title && rawTextLines.length > 0) {
+  if (rawTextLines.length > 0) {
     const lines = rawTextLines.map((l) => cleanText(l)).filter((l): l is string => Boolean(l));
-    if (lines.length >= 1) title = lines[0];
-    if (lines.length >= 2) {
-      const compLine = lines[1];
-      if (compLine.includes("·")) {
-        const [cName, eType] = compLine.split("·").map((s) => s.trim());
-        company = cName;
-        employmentType = eType;
+    
+    if (lines.length === 1) {
+      title = lines[0];
+    } else if (lines.length >= 2) {
+      title = lines[0];
+      
+      if (isDateString(lines[1])) {
+        // Line 1 is dates: e.g. "Jul 2020 - Present · 6 yrs 2 mos"
+        const parsed = parseDateRange(lines[1]);
+        startDate = parsed.startDate;
+        endDate = parsed.endDate;
+        duration = lines[1];
+        if (lines.length >= 3) {
+          description = lines.slice(2).join("\n");
+        }
       } else {
-        company = compLine;
+        // Line 1 is company: e.g. "Microsoft · Full-time"
+        const compLine = lines[1];
+        if (compLine.includes("·")) {
+          const [cName, eType] = compLine.split("·").map((s) => s.trim());
+          company = cName;
+          employmentType = eType;
+        } else {
+          company = compLine;
+        }
+
+        if (lines.length >= 3) {
+          if (isDateString(lines[2])) {
+            const parsed = parseDateRange(lines[2]);
+            startDate = parsed.startDate;
+            endDate = parsed.endDate;
+            duration = lines[2];
+            if (lines.length >= 4) {
+              if (!lines[3].toLowerCase().startsWith("skills:")) {
+                location = lines[3];
+                if (lines.length >= 5) description = lines.slice(4).join("\n");
+              } else {
+                description = lines.slice(3).join("\n");
+              }
+            }
+          } else {
+            description = lines.slice(2).join("\n");
+          }
+        }
       }
     }
-    if (lines.length >= 3) {
-      const dates = parseDateRange(lines[2]);
-      startDate = dates.startDate;
-      endDate = dates.endDate;
-      duration = dates.duration;
-    }
-    if (lines.length >= 4 && !lines[3].toLowerCase().startsWith("skills:")) {
-      location = lines[3];
-    }
-    if (lines.length >= 5) {
-      description = lines.slice(4).join("\n");
-    }
-  }
-
-  // Parse duration if raw duration string contains date split
-  if (duration && !startDate && !endDate && (duration.includes("-") || duration.includes("–"))) {
-    const dates = parseDateRange(duration);
-    startDate = dates.startDate;
-    endDate = dates.endDate;
-    duration = dates.duration;
   }
 
   return {
@@ -195,35 +224,39 @@ export function normalizeEducationItem(item: RawEducationItem): ProfileEducation
     rawTextLines = [],
   } = item;
 
-  if (!school && rawTextLines.length > 0) {
+  if (rawTextLines.length > 0) {
     const lines = rawTextLines.map((l) => cleanText(l)).filter((l): l is string => Boolean(l));
     if (lines.length >= 1) school = lines[0];
     if (lines.length >= 2) {
-      const degLine = lines[1];
-      if (degLine.includes(",")) {
-        const [dName, fStudy] = degLine.split(",").map((s) => s.trim());
-        degree = dName;
-        fieldOfStudy = fStudy;
+      if (isDateString(lines[1])) {
+        const dates = parseDateRange(lines[1]);
+        startDate = dates.startDate;
+        endDate = dates.endDate;
+        duration = lines[1];
+        if (lines.length >= 3) description = lines.slice(2).join("\n");
       } else {
-        degree = degLine;
+        const degLine = lines[1];
+        if (degLine.includes(",")) {
+          const [dName, fStudy] = degLine.split(",").map((s) => s.trim());
+          degree = dName;
+          fieldOfStudy = fStudy;
+        } else {
+          degree = degLine;
+        }
+
+        if (lines.length >= 3) {
+          if (isDateString(lines[2])) {
+            const dates = parseDateRange(lines[2]);
+            startDate = dates.startDate;
+            endDate = dates.endDate;
+            duration = lines[2];
+            if (lines.length >= 4) description = lines.slice(3).join("\n");
+          } else {
+            description = lines.slice(2).join("\n");
+          }
+        }
       }
     }
-    if (lines.length >= 3) {
-      const dates = parseDateRange(lines[2]);
-      startDate = dates.startDate;
-      endDate = dates.endDate;
-      duration = dates.duration || lines[2];
-    }
-    if (lines.length >= 4) {
-      description = lines.slice(3).join("\n");
-    }
-  }
-
-  if (duration && !startDate && !endDate && (duration.includes("-") || duration.includes("–"))) {
-    const dates = parseDateRange(duration);
-    startDate = dates.startDate;
-    endDate = dates.endDate;
-    duration = dates.duration || duration;
   }
 
   return {
@@ -251,7 +284,7 @@ export function normalizeCertificationItem(item: RawCertificationItem): ProfileC
     rawTextLines = [],
   } = item;
 
-  if (!name && rawTextLines.length > 0) {
+  if (rawTextLines.length > 0) {
     const lines = rawTextLines.map((l) => cleanText(l)).filter((l): l is string => Boolean(l));
     if (lines.length >= 1) name = lines[0];
     if (lines.length >= 2) issuer = lines[1];
@@ -287,7 +320,7 @@ export function normalizeCertificationItem(item: RawCertificationItem): ProfileC
 export function normalizeLanguageItem(item: RawLanguageItem): ProfileLanguage {
   let { language = null, proficiency = null, rawTextLines = [] } = item;
 
-  if (!language && rawTextLines.length > 0) {
+  if (rawTextLines.length > 0) {
     const lines = rawTextLines.map((l) => cleanText(l)).filter((l): l is string => Boolean(l));
     if (lines.length >= 1) language = lines[0];
     if (lines.length >= 2) proficiency = lines[1];
@@ -303,30 +336,11 @@ export function normalizeLanguageItem(item: RawLanguageItem): ProfileLanguage {
  * Main normalizer that transforms raw scraped data into the final target LinkedInProfile schema
  */
 export function normalizeProfile(raw: RawProfileData, profileUrl: string): LinkedInProfile {
-  // Extract or fallback from JSON-LD if top-level fields are missing
   let name = cleanText(raw.name);
   let headline = cleanText(raw.headline);
   let location = cleanText(raw.location);
   let about = cleanText(raw.about);
   let image = cleanText(raw.image);
-
-  if (raw.jsonLd) {
-    const ld = raw.jsonLd;
-    if (!name && ld.name) name = cleanText(ld.name);
-    if (!headline && ld.jobTitle) headline = cleanText(ld.jobTitle);
-    if (!about && ld.description) about = cleanText(ld.description);
-    if (!image && ld.image) {
-      image = typeof ld.image === "string" ? cleanText(ld.image) : cleanText(ld.image.url || ld.image.contentUrl);
-    }
-    if (!location && ld.address) {
-      if (typeof ld.address === "string") {
-        location = cleanText(ld.address);
-      } else if (typeof ld.address === "object") {
-        const locParts = [ld.address.addressLocality, ld.address.addressRegion, ld.address.addressCountry].filter(Boolean);
-        if (locParts.length > 0) location = locParts.join(", ");
-      }
-    }
-  }
 
   // Filter and normalize experience items
   const experience: ProfileExperience[] = (raw.experience || [])
@@ -338,12 +352,19 @@ export function normalizeProfile(raw: RawProfileData, profileUrl: string): Linke
     .map(normalizeEducationItem)
     .filter((edu) => Boolean(edu.school || edu.degree || edu.fieldOfStudy));
 
-  // Clean and deduplicate skills
+  // Clean, filter navigation labels, and deduplicate skills
+  const ignoredSkillKeywords = ["all", "show all", "industry knowledge", "tools & technologies", "interpersonal skills"];
   const skills: string[] = Array.from(
     new Set(
       (raw.skills || [])
         .map((s) => cleanText(s))
-        .filter((s): s is string => typeof s === "string" && s.length > 0 && s.length < 100)
+        .filter(
+          (s): s is string =>
+            typeof s === "string" &&
+            s.length > 0 &&
+            s.length < 100 &&
+            !ignoredSkillKeywords.includes(s.toLowerCase())
+        )
     )
   );
 
