@@ -22,7 +22,7 @@ app.get("/docs", (c) => {
   return c.html(renderDocsHtml());
 });
 
-// UI Demo submission endpoint (server-side authenticated execution for demo UI)
+// UI Demo submission endpoint
 app.post("/api/demo", async (c) => {
   let body: unknown;
   try {
@@ -46,13 +46,13 @@ app.post("/api/demo", async (c) => {
     );
   }
 
-  const { url } = parseResult.data;
+  const { url, session_cookie } = parseResult.data;
 
   try {
-    const profile = await scrapeLinkedInProfile(url);
+    const profile = await scrapeLinkedInProfile(url, 20000, session_cookie);
     return c.json({ success: true, profile }, 200);
   } catch (err: any) {
-    console.error(`[DemoRoute] Error scraping profile (${url}):`, err);
+    console.error(`[DemoRoute] Error fetching profile (${url}):`, err);
 
     if (err instanceof ScrapeError) {
       return c.json({ success: false, error: err.message, code: err.code }, err.statusCode as any);
@@ -61,7 +61,7 @@ app.post("/api/demo", async (c) => {
     return c.json(
       {
         success: false,
-        error: err.message || "An unexpected error occurred while scraping the LinkedIn profile.",
+        error: err.message || "An unexpected error occurred while fetching the LinkedIn profile.",
       },
       500
     );
@@ -75,7 +75,7 @@ app.get("/openapi.json", (c) => {
 
 // Health check endpoint
 app.get("/health", (c) => {
-  const hasStorageState = Boolean(process.env.LINKEDIN_STORAGE_STATE);
+  const hasStorageState = Boolean(process.env.LINKEDIN_STORAGE_STATE || process.env.LINKEDIN_LI_AT);
   const hasApiKey = Boolean(process.env.API_KEY);
 
   return c.json({
@@ -85,7 +85,6 @@ app.get("/health", (c) => {
     config: {
       storageStateConfigured: hasStorageState,
       apiKeyConfigured: hasApiKey,
-      maxConcurrency: parseInt(process.env.MAX_CONCURRENT_SCRAPES || "2", 10),
     },
   });
 });

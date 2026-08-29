@@ -37,8 +37,12 @@ profileRoute.use("*", async (c, next) => {
 /**
  * Helper to process profile lookup
  */
-async function handleProfileLookup(c: any, urlInput: unknown) {
-  const parseResult = ProfileRequestSchema.safeParse({ url: urlInput });
+async function handleProfileLookup(c: any, urlInput: unknown, sessionCookie?: string) {
+  const parseResult = ProfileRequestSchema.safeParse({
+    url: urlInput,
+    session_cookie: sessionCookie,
+  });
+
   if (!parseResult.success) {
     return c.json(
       {
@@ -53,10 +57,10 @@ async function handleProfileLookup(c: any, urlInput: unknown) {
     );
   }
 
-  const { url } = parseResult.data;
+  const { url, session_cookie } = parseResult.data;
 
   try {
-    const profile = await scrapeLinkedInProfile(url);
+    const profile = await scrapeLinkedInProfile(url, 20000, session_cookie);
     return c.json(
       {
         success: true,
@@ -93,6 +97,7 @@ async function handleProfileLookup(c: any, urlInput: unknown) {
  */
 profileRoute.get("/", async (c) => {
   const urlParam = c.req.query("url");
+  const sessionParam = c.req.query("session_cookie") || c.req.header("x-linkedin-cookie");
   if (!urlParam) {
     return c.json(
       {
@@ -102,7 +107,7 @@ profileRoute.get("/", async (c) => {
       400
     );
   }
-  return handleProfileLookup(c, urlParam);
+  return handleProfileLookup(c, urlParam, sessionParam);
 });
 
 /**
@@ -122,5 +127,6 @@ profileRoute.post("/", async (c) => {
     );
   }
 
-  return handleProfileLookup(c, body?.url);
+  const sessionParam = body?.session_cookie || c.req.header("x-linkedin-cookie");
+  return handleProfileLookup(c, body?.url, sessionParam);
 });

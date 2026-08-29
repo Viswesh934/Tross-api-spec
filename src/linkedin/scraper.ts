@@ -18,17 +18,20 @@ export class ScrapeError extends Error {
  */
 export async function scrapeLinkedInProfile(
   profileUrl: string,
-  timeoutMs: number = 20000
+  timeoutMs: number = 20000,
+  overrideSessionCookie?: string
 ): Promise<LinkedInProfile> {
   const username = extractUsername(profileUrl);
   console.log(`[VoyagerClient] Fetching profile for member: ${username} (${profileUrl})`);
 
-  // Load LinkedIn session credentials
-  const { li_at, jsessionid } = getLinkedInCredentials();
+  // Load LinkedIn session credentials (caller's override cookie takes precedence)
+  const defaultCreds = getLinkedInCredentials();
+  const li_at = overrideSessionCookie ? overrideSessionCookie.trim() : defaultCreds.li_at;
+  const jsessionid = defaultCreds.jsessionid;
 
   if (!li_at) {
     throw new ScrapeError(
-      "LinkedIn session cookie (li_at) is missing. Set LINKEDIN_LI_AT or provide session.json / secret file.",
+      "LinkedIn session cookie (li_at) is missing. Set LINKEDIN_LI_AT, provide session_cookie, or configure session.json.",
       401,
       "SESSION_MISSING"
     );

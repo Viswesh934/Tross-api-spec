@@ -33,6 +33,7 @@ export const ProfileRequestSchema = z.object({
           "Invalid LinkedIn profile URL or handle. Example formats: https://www.linkedin.com/in/username/ or username",
       }
     ),
+  session_cookie: z.string().trim().optional(),
 });
 
 export type ProfileRequest = z.infer<typeof ProfileRequestSchema>;

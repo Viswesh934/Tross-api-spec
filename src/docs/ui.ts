@@ -32,6 +32,11 @@ export function renderDocsHtml(): string {
       margin-bottom: 0.4rem;
       color: #334155;
     }
+    .optional-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-weight: 400;
+    }
     input[type="text"] {
       width: 100%;
       padding: 0.7rem 0.9rem;
@@ -100,6 +105,11 @@ export function renderDocsHtml(): string {
       <input type="text" id="url" placeholder="https://www.linkedin.com/in/username/" required />
     </div>
 
+    <div class="form-group">
+      <label for="sessionCookie">Session Cookie (li_at) <span class="optional-label">(Optional — overrides server session)</span></label>
+      <input type="text" id="sessionCookie" placeholder="AQEDAT..." />
+    </div>
+
     <button type="submit" id="sendBtn">Send</button>
   </form>
 
@@ -116,22 +126,28 @@ export function renderDocsHtml(): string {
   async function sendRequest(e) {
     e.preventDefault();
     const url = document.getElementById('url').value.trim();
+    const sessionCookie = document.getElementById('sessionCookie').value.trim();
     const sendBtn = document.getElementById('sendBtn');
     const status = document.getElementById('status');
     const output = document.getElementById('output');
 
     sendBtn.disabled = true;
     sendBtn.innerText = 'Sending...';
-    status.innerText = 'Scraping in progress...';
-    output.innerText = '// Processing profile extraction...';
+    status.innerText = 'Fetching profile from Voyager API...';
+    output.innerText = '// Processing request...';
 
     const startTime = performance.now();
 
     try {
+      const payload = { url };
+      if (sessionCookie) {
+        payload.session_cookie = sessionCookie;
+      }
+
       const res = await fetch('/api/demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify(payload)
       });
 
       const duration = ((performance.now() - startTime) / 1000).toFixed(2);
