@@ -2,27 +2,27 @@ FROM mcr.microsoft.com/playwright:v1.50.1-noble
 
 WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV=production
-ENV PORT=3000
-
-# Copy package management files
+# Copy package files
 COPY package*.json ./
 
-# Install all dependencies needed for build
-RUN npm ci
+# Install all dependencies including devDependencies for compilation
+RUN npm ci --include=dev
 
-# Copy source files
+# Copy TypeScript configuration and source files
 COPY tsconfig.json ./
 COPY src ./src
 
 # Build TypeScript to dist/
 RUN npm run build
 
-# Remove devDependencies to keep image lean
+# Prune devDependencies to keep final image clean and lightweight
 RUN npm prune --production
 
-# Expose port (Render sets $PORT dynamically)
+# Set production environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Expose port (Render overrides with $PORT dynamically)
 EXPOSE 3000
 
 # Start server
