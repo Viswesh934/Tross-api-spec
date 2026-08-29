@@ -1,13 +1,12 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { app } from "./app.js";
-import { browserManager } from "./linkedin/browser.js";
 
 // Server configuration
 const port = parseInt(process.env.PORT || "3000", 10);
 const hostname = "0.0.0.0";
 
-console.log(`[App] Starting LinkedIn Profile API on ${hostname}:${port}...`);
+console.log(`[App] Starting LinkedIn Profile API (Pure HTTP Voyager Client) on ${hostname}:${port}...`);
 
 const server = serve(
   {
@@ -21,18 +20,12 @@ const server = serve(
 );
 
 // Graceful Shutdown
-const shutdown = async (signal: string) => {
+const shutdown = (signal: string) => {
   console.log(`[App] Received ${signal}. Starting graceful shutdown...`);
-  try {
-    await browserManager.close();
-    server.close(() => {
-      console.log("[App] HTTP server closed.");
-      process.exit(0);
-    });
-  } catch (err) {
-    console.error("[App] Error during shutdown:", err);
-    process.exit(1);
-  }
+  server.close(() => {
+    console.log("[App] HTTP server closed.");
+    process.exit(0);
+  });
 };
 
 process.on("SIGINT", () => shutdown("SIGINT"));

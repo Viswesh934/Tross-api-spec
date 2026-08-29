@@ -1,24 +1,21 @@
-FROM mcr.microsoft.com/playwright:v1.50.1-noble
+FROM node:22-alpine
 
 WORKDIR /app
 
 # Copy package management files
 COPY package*.json ./
 
-# Install exact dependencies
-RUN npm install
+# Install dependencies
+RUN npm ci
 
-# Ensure Playwright Chromium binary is installed and matched
-RUN npx playwright install chromium
-
-# Copy TypeScript configuration and source files
+# Copy TypeScript configuration, source files, and fixtures
 COPY tsconfig.json ./
 COPY src ./src
 
 # Build TypeScript to dist/
 RUN npm run build
 
-# Remove devDependencies to keep final image clean and lightweight
+# Remove devDependencies to keep final image clean and minimal (~120MB)
 RUN npm prune --production
 
 # Set production environment variables

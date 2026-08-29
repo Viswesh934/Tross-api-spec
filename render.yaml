@@ -2,16 +2,12 @@ services:
   - type: web
     name: linkedin-profile-api
     runtime: docker
-    plan: starter
+    plan: free
     region: oregon
     envVars:
       - key: PORT
         value: 3000
       - key: API_KEY
         generateValue: true
-      - key: LINKEDIN_STORAGE_STATE
+      - key: LINKEDIN_LI_AT
         sync: false
-      - key: MAX_CONCURRENT_SCRAPES
-        value: 2
-      - key: SCRAPE_TIMEOUT_MS
-        value: 40000

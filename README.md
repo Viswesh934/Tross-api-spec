@@ -1,49 +1,48 @@
-# LinkedIn Profile API
+# LinkedIn Profile API (Pure HTTP Voyager Client)
 
-A fast, lightweight, and structured LinkedIn Profile Scraper API built with **Hono**, **Playwright (Chromium)**, and **TypeScript**, packaged for containerized deployment on **Docker** and **Render**.
+A fast, lightweight, and structured LinkedIn Profile API built with **Hono**, **TypeScript**, and **Node.js**.
+
+This service is a **pure reverse-engineered HTTP client** against LinkedIn's internal **Voyager REST API**. **There is no browser in it** — no Playwright, no Puppeteer, no Selenium, no Chromium, and no DOM rendering subprocesses.
 
 ---
 
-## 📖 Live API Documentation & Interactive Demo
+## 📖 Live API Documentation & Web UI
 
-When the server is running, visit **[http://localhost:3000/docs](http://localhost:3000/docs)** (or the root URL **`/`**) in your browser to access:
+When the server is running, visit **[http://localhost:3000/](http://localhost:3000/)** (or `/docs`) in your browser to access:
 
-* 🎮 **Interactive Live Playground**: Test real scraping requests with one click.
-* 📖 **OpenAPI / Swagger Explorer**: Full endpoint parameters, schemas, and curl examples.
-* ⚙️ **OpenAPI 3.1 Specification**: Accessible via `/openapi.json` and [`./openapi.yaml`](./openapi.yaml).
+* 🎮 **Interactive Live UI**: Test profile extraction with one click.
+* 📖 **OpenAPI Specification**: Accessible via `/openapi.json` and [`./openapi.yaml`](./openapi.yaml).
 * 📑 **Offline Documentation**: Formatted markdown spec available in [`./API_SPEC.md`](./API_SPEC.md).
 
 ---
 
-## 🏗 Architecture
+## 🏗 Architecture: How it Works
 
 ```mermaid
 flowchart TD
-    Client["Client / Hiring Team / Evaluator"] -->|"HTTPS POST /v1/profile (x-api-key)"| Hono["Hono Web Server (Node.js)"]
+    Client["Client / Hiring Team / Evaluator"] -->|"GET /v1/profile?url=... or POST /v1/profile"| Hono["Hono Web Server (Node.js)"]
     
-    subgraph Container ["Docker / Render Container"]
-        Hono -->|"1. Validate Request & API Key"| Middleware["Auth & Zod Middleware"]
-        Middleware -->|"2. Acquire Concurrency Semaphore"| Manager["BrowserManager (Playwright)"]
-        Manager -->|"3. New Context + StorageState"| Chromium["Chromium Instance"]
-        Chromium -->|"4. Navigate Profile & Scroll"| Scraper["Profile Scraper"]
-        Scraper -->|"5. Raw DOM & JSON-LD Extraction"| Normalizer["Parser / Normalizer"]
-        Normalizer -->|"6. Structured JSON"| Hono
+    subgraph Service ["Pure HTTP Container (Node.js Alpine)"]
+        Hono -->|"1. Validate Handle / URL"| Middleware["Auth & Zod Middleware"]
+        Middleware -->|"2. Load Session Credentials"| ClientModule["Voyager HTTP Client"]
+        ClientModule -->|"3. Direct HTTP GET (with li_at + csrf-token)"| LinkedIn["LinkedIn Voyager API"]
+        LinkedIn -->|"4. Normalized JSON-LD Entity Graph"| ClientModule
+        ClientModule -->|"5. Transform Entities"| Parser["Profile Normalizer"]
+        Parser -->|"6. Structured JSON"| Hono
     end
 
-    Hono -->|"200 OK (Clean Profile JSON)"| Client
+    Hono -->|"200 OK (Clean Structured JSON)"| Client
 ```
 
----
-
-## ⚡ Features
-
-- **Interactive Playground & Swagger UI**: Built-in visual demo at `/docs` for easy evaluation.
-- **Hono Web Framework**: High performance, minimal footprint, and first-class TypeScript support.
-- **Playwright Automation**: Isolated browser contexts with authenticated session management (`storageState`).
-- **Resilient Extraction**: Multi-layered section parsers with fallback to structured JSON-LD.
-- **Strict Normalization**: Conforms to a clean schema (empty arrays `[]` for missing lists, `null` for missing scalars).
-- **Concurrency & Resource Management**: Built-in semaphore control and automatic context cleanup.
-- **Production Ready**: Full Docker configuration, `/health` endpoint, API key authentication, and Render deployment support.
+### Transport & Endpoints
+| Component | Details |
+|---|---|
+| **Transport** | Native HTTP `fetch` (Pure HTTP, no browser) |
+| **Primary Endpoint** | `GET https://www.linkedin.com/voyager/api/identity/dash/profiles?q=memberIdentity&...` |
+| **Auth** | `li_at` cookie + `csrf-token` header (reverse-engineered from LinkedIn) |
+| **Response Format** | `application/vnd.linkedin.normalized+json+2.1` |
+| **Browser Dependencies** | **None** (No Playwright, no Chromium) |
+| **Image Size** | Lightweight Docker container (`node:22-alpine`, ~120MB) |
 
 ---
 
@@ -51,29 +50,30 @@ flowchart TD
 
 ```text
 ├── src/
-│   ├── index.ts             # Server entrypoint & lifecycle shutdown
+│   ├── index.ts             # Server entrypoint & HTTP listener
 │   ├── app.ts               # Hono app definition, middleware & routing
 │   ├── docs/
 │   │   ├── openapi.ts       # OpenAPI 3.1.0 JSON specification
-│   │   └── ui.ts            # Swagger UI & Interactive Live Demo UI
+│   │   └── ui.ts            # Clean Web UI
 │   ├── routes/
-│   │   └── profile.ts       # POST /v1/profile endpoint
+│   │   └── profile.ts       # GET & POST /v1/profile endpoints
 │   ├── linkedin/
-│   │   ├── browser.ts       # Chromium lifecycle & concurrency manager
-│   │   ├── scraper.ts       # Page navigation, scrolling & extraction
-│   │   └── parser.ts        # Section normalization & text cleaning
+│   │   ├── client.ts        # Session credential loader & username parser
+│   │   ├── scraper.ts       # Direct Voyager API HTTP fetcher
+│   │   └── parser.ts        # Voyager JSON entity normalizer
+│   ├── fixtures/
+│   │   └── ada-lovelace.json# Offline fixture for instant evaluation
 │   └── schemas/
 │       └── profile.ts       # Request/Response schemas & Zod validation
-├── scripts/
-│   └── auth.ts              # Interactive CLI session capture script
 ├── test/
 │   └── test-api.ts          # Unit & integration test suite
-├── Dockerfile               # Production container definition
+├── Dockerfile               # Node 22 Alpine production container
 ├── openapi.yaml             # Standalone OpenAPI 3.1 YAML definition
 ├── API_SPEC.md              # Detailed Markdown API specification
+├── render.yaml              # Render blueprint deployment definition
 ├── .dockerignore
 ├── .gitignore
-├── .env.example             # Example environment configuration
+├── .env.example
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -83,22 +83,15 @@ flowchart TD
 
 ## 🚀 Quick Start (Local Setup)
 
-### 1. Prerequisites
-- **Node.js**: v20+ or v22+
-- **npm**: v10+
-
-### 2. Installation
-Clone the repository and install dependencies:
+### 1. Installation
 ```bash
 git clone https://github.com/Viswesh934/Tross-api-spec.git
 cd Tross-api-spec
 
 npm install
-npx playwright install chromium --with-deps
 ```
 
-### 3. Configure Environment
-Copy the example environment file:
+### 2. Configure Environment
 ```bash
 cp .env.example .env
 ```
@@ -107,33 +100,29 @@ Edit `.env`:
 ```env
 PORT=3000
 API_KEY=test-challenge-api-key-2026
-LINKEDIN_STORAGE_STATE=session.json
-MAX_CONCURRENT_SCRAPES=2
-SCRAPE_TIMEOUT_MS=35000
+LINKEDIN_LI_AT=AQEDAT...
 ```
 
-### 4. Start Server
+### 3. Start Server
 ```bash
 npm start
 ```
-Then open **[http://localhost:3000/docs](http://localhost:3000/docs)** to test the live demo!
+Open **[http://localhost:3000/](http://localhost:3000/)** in your browser!
 
 ---
 
 ## 🧪 Testing
 
-Run the automated test suite verifying schemas, data normalization, error handling, and API routes:
+Run the automated test suite verifying schema parsing, Voyager entity transformations, and API routes:
 ```bash
 npm test
 ```
 
 ---
 
-## 🌐 API Specification
+## 🌐 API Reference
 
 ### 1. Health Check
-Checks service availability and configuration state.
-
 **Endpoint:** `GET /health`
 
 ```bash
@@ -145,63 +134,75 @@ curl -X GET http://localhost:3000/health
 {
   "status": "healthy",
   "service": "linkedin-profile-api",
-  "timestamp": "2026-08-29T17:35:00.000Z",
-  "config": {
-    "storageStateConfigured": true,
-    "apiKeyConfigured": true,
-    "maxConcurrency": 2
-  }
+  "timestamp": "2026-08-29T18:50:00.000Z"
 }
 ```
 
 ---
 
-### 2. Scrape Profile
-Extracts structured information for a given LinkedIn profile URL.
+### 2. Fetch Profile
 
-**Endpoint:** `POST /v1/profile`
+Supports both `GET` (query parameter) and `POST` (JSON body):
 
-**Headers:**
-- `Content-Type: application/json`
-- `x-api-key: <YOUR_API_KEY>` (or `Authorization: Bearer <YOUR_API_KEY>`)
-
-**Request Body:**
-```json
-{
-  "url": "https://www.linkedin.com/in/williamhgates/"
-}
+#### Using `GET`:
+```bash
+curl -X GET "http://localhost:3000/v1/profile?url=https://www.linkedin.com/in/williamhgates" \
+  -H "x-api-key: test-challenge-api-key-2026"
 ```
 
-**Example Request:**
+#### Using `POST`:
 ```bash
 curl -X POST http://localhost:3000/v1/profile \
   -H "Content-Type: application/json" \
   -H "x-api-key: test-challenge-api-key-2026" \
-  -d '{"url": "https://www.linkedin.com/in/williamhgates/"}'
+  -d '{"url": "https://www.linkedin.com/in/williamhgates"}'
 ```
 
-**Response Schema (`200 OK`):**
+#### Offline Fixture Mode:
+You can test the endpoint without credentials using the bundled fixture:
+```bash
+curl "http://localhost:3000/v1/profile?url=ada-lovelace"
+```
+
+**Response (`200 OK`):**
 ```json
 {
   "success": true,
   "profile": {
-    "url": "https://www.linkedin.com/in/williamhgates/",
+    "url": "https://www.linkedin.com/in/williamhgates",
     "name": "Bill Gates",
     "headline": "Chair, Gates Foundation and Founder, Breakthrough Energy",
     "location": "Seattle, Washington, United States",
-    "about": "Chair of the Gates Foundation. Founder of Breakthrough Energy. Co-founder of Microsoft.",
-    "image": "https://media.licdn.com/dms/image/v2/D4E03AQEK3mRQ8nO4rA/profile-displayphoto-scale_100_100/...",
-    "experience": [],
-    "education": [],
-    "skills": [
-      "Software Engineering",
-      "Philanthropy"
+    "about": "Co-chair of the Bill & Melinda Gates Foundation. Founder of Breakthrough Energy. Co-founder of Microsoft.",
+    "image": "https://media.licdn.com/dms/image/v2/...",
+    "experience": [
+      {
+        "title": "Co-chair",
+        "company": "Bill & Melinda Gates Foundation",
+        "employmentType": "Full-time",
+        "duration": "2000 - Present",
+        "startDate": "2000",
+        "endDate": "Present",
+        "location": "Seattle, WA",
+        "description": "Guided by the belief that every life has equal value..."
+      }
     ],
+    "education": [
+      {
+        "school": "Harvard University",
+        "degree": null,
+        "fieldOfStudy": null,
+        "duration": "1973 - 1975",
+        "startDate": "1973",
+        "endDate": "1975"
+      }
+    ],
+    "skills": ["Software Development", "Philanthropy", "Global Health"],
     "certifications": [],
     "languages": [
       {
         "language": "English",
-        "proficiency": "Native or bilingual proficiency"
+        "proficiency": "Native or bilingual"
       }
     ]
   }
@@ -210,51 +211,18 @@ curl -X POST http://localhost:3000/v1/profile \
 
 ---
 
-## 🐳 Docker Deployment
-
-Build and run the container locally:
-
-```bash
-# Build the Docker image
-docker build -t linkedin-profile-api .
-
-# Run container with environment variables
-docker run -d \
-  -p 3000:3000 \
-  -e API_KEY="test-challenge-api-key-2026" \
-  -v $(pwd)/session.json:/app/session.json \
-  -e LINKEDIN_STORAGE_STATE="/app/session.json" \
-  --name linkedin-api \
-  linkedin-profile-api
-```
-
----
-
 ## ☁️ Render Deployment Instructions
 
 1. Push your code to your GitHub repository (`Viswesh934/Tross-api-spec`).
 2. Log into the [Render Dashboard](https://dashboard.render.com/).
-3. Click **New +** → **Web Service**.
-4. Connect your GitHub repository.
-5. Choose **Docker** as the Runtime.
-6. Under **Environment Variables**, add:
-   - `PORT`: `3000` (or Render default)
-   - `API_KEY`: `<your-secure-api-key>`
-   - `LINKEDIN_STORAGE_STATE`: Paste the entire content of `session.json` directly as a JSON string, or upload as a Secret File and set the path.
-   - `MAX_CONCURRENT_SCRAPES`: `2`
-   - `SCRAPE_TIMEOUT_MS`: `35000`
-7. Click **Create Web Service**.
-8. Render will build the container and provide your public URL: `https://<service-name>.onrender.com`.
-
----
-
-## 🔒 Security & Privacy Notes
-
-- **API Protection**: All extraction requests require a valid API key header.
-- **Session Isolation**: Each scrape runs in a separate, isolated browser context.
-- **No Data Retention**: Extracted profile information is returned in-memory and never written to disk or logs.
-- **Safe Secrets Handling**: `session.json`, `*storage-state*.json`, and `.env` files are strictly excluded via `.gitignore` and `.dockerignore`.
-- **Concurrency & Rate Limits**: Built-in semaphore prevents resource exhaustion on the host container.
+3. Click **New +** → **Web Service** → Connect your repository.
+4. Choose **Docker** as the Runtime.
+5. Under **Environment Variables**, add:
+   * `PORT`: `3000`
+   * `API_KEY`: `<your-api-key>`
+   * `LINKEDIN_LI_AT`: `<your-li_at-cookie-value>`
+   *(Or add `session.json` under **Secret Files** on Render)*.
+6. Click **Create Web Service**.
 
 ---
 

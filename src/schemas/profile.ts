@@ -1,12 +1,14 @@
 import { z } from "zod";
 
 /**
- * Regex matching valid LinkedIn profile URLs:
+ * Regex matching valid LinkedIn profile URLs or public IDs:
  * e.g. https://www.linkedin.com/in/williamhgates
  *      https://linkedin.com/in/satyanadella/
  *      https://uk.linkedin.com/in/someone-123/
+ *      williamhgates
  */
 export const LINKEDIN_PROFILE_URL_REGEX = /^https?:\/\/(?:[a-zA-Z0-9-]+\.)?linkedin\.com\/in\/[a-zA-Z0-9_\-%À-ž]+\/?(?:[?#].*)?$/i;
+export const BARE_HANDLE_REGEX = /^[a-zA-Z0-9_\-%À-ž]{2,100}$/;
 
 export const ProfileRequestSchema = z.object({
   url: z
@@ -16,16 +18,21 @@ export const ProfileRequestSchema = z.object({
     })
     .trim()
     .min(1, "URL cannot be empty")
-    .refine((val) => {
-      try {
-        const parsed = new URL(val);
-        return LINKEDIN_PROFILE_URL_REGEX.test(val) && parsed.pathname.startsWith("/in/");
-      } catch {
-        return false;
+    .refine(
+      (val) => {
+        if (BARE_HANDLE_REGEX.test(val)) return true;
+        try {
+          const parsed = new URL(val.startsWith("http") ? val : `https://${val}`);
+          return parsed.hostname.includes("linkedin.com") && parsed.pathname.includes("/in/");
+        } catch {
+          return false;
+        }
+      },
+      {
+        message:
+          "Invalid LinkedIn profile URL or handle. Example formats: https://www.linkedin.com/in/username/ or username",
       }
-    }, {
-      message: "Invalid LinkedIn profile URL. Example format: https://www.linkedin.com/in/username/",
-    }),
+    ),
 });
 
 export type ProfileRequest = z.infer<typeof ProfileRequestSchema>;

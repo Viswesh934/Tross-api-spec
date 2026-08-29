@@ -1,0 +1,58 @@
+{
+  "url": "https://www.linkedin.com/in/ada-lovelace",
+  "name": "Ada Lovelace",
+  "headline": "Mathematician & Computing Pioneer",
+  "location": "London, England, United Kingdom",
+  "about": "English mathematician and writer, chiefly known for her work on Charles Babbage's mechanical general-purpose computer, the Analytical Engine. Believed to be the first to recognise that the machine had applications beyond pure calculation.",
+  "image": "https://media.licdn.com/dms/image/v2/D4E03AQEK3mRQ8nO4rA/profile-displayphoto-scale_100_100/B4EZ.S9A4zKoAY-/0/1784876898086?e=1789603200&v=beta&t=U0CnBOxlNACWTmZvKsDeIYY8A17fv_tPdwV_zLVbD-Q",
+  "experience": [
+    {
+      "title": "Principal Mathematician & Contributor",
+      "company": "Analytical Engine Project",
+      "employmentType": "Full-time",
+      "duration": "1842 - 1852 · 10 yrs",
+      "startDate": "1842",
+      "endDate": "1852",
+      "location": "London, United Kingdom",
+      "description": "Published the first algorithm intended to be carried out by a machine (calculating Bernoulli numbers)."
+    }
+  ],
+  "education": [
+    {
+      "school": "University of London (Private Tutelage)",
+      "degree": "Advanced Mathematics and Logic",
+      "fieldOfStudy": "Mathematics",
+      "duration": "1832 - 1840",
+      "startDate": "1832",
+      "endDate": "1840",
+      "description": "Mentored by Mary Somerville and Augustus De Morgan."
+    }
+  ],
+  "skills": [
+    "Algorithmic Design",
+    "Applied Mathematics",
+    "Computer Science",
+    "Analytical Reasoning",
+    "Mathematical Modeling"
+  ],
+  "certifications": [
+    {
+      "name": "Scientific Memoir Translation and Annotation",
+      "issuer": "Taylor's Scientific Memoirs",
+      "issueDate": "1843",
+      "expirationDate": null,
+      "credentialId": "MEMOIR-1843",
+      "credentialUrl": null
+    }
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual"
+    },
+    {
+      "language": "French",
+      "proficiency": "Professional working"
+    }
+  ]
+}
