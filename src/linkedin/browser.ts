@@ -151,11 +151,12 @@ class BrowserManager {
         },
       });
 
-      // Avoid automation detection
+      // Avoid automation detection and tsx/esbuild __name ReferenceError
       await context.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", {
           get: () => undefined,
         });
+        (window as any).__name = (target: any) => target;
       });
 
       page = await context.newPage();

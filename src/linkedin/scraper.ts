@@ -61,7 +61,7 @@ export async function scrapeLinkedInProfile(
 
       // Check for "Profile not found" page content
       const isNotFound = await page.evaluate(() => {
-        const text = document.body.innerText || "";
+        const text = document.body ? document.body.innerText || "" : "";
         return (
           text.includes("This profile is not available") ||
           text.includes("Page not found") ||
@@ -104,21 +104,27 @@ export async function scrapeLinkedInProfile(
 
       // Extract raw data from the page DOM and JSON-LD
       const rawData = await page.evaluate((): RawProfileData => {
+        // Ensure __name helper exists in page evaluate scope
+        if (typeof (window as any).__name === "undefined") {
+          (window as any).__name = (target: any) => target;
+        }
+
         // Helper to get clean text content
         const getText = (el: Element | null | undefined): string | null => {
           if (!el) return null;
           const ariaHidden = el.querySelector('span[aria-hidden="true"]');
-          if (ariaHidden && ariaHidden.textContent?.trim()) {
+          if (ariaHidden && ariaHidden.textContent && ariaHidden.textContent.trim()) {
             return ariaHidden.textContent.trim();
           }
-          return el.textContent?.trim() || null;
+          return el.textContent && el.textContent.trim() ? el.textContent.trim() : null;
         };
 
         // Extract JSON-LD if available
         let jsonLd: Record<string, any> | null = null;
         try {
           const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
-          for (const s of Array.from(ldScripts)) {
+          for (let i = 0; i < ldScripts.length; i++) {
+            const s = ldScripts[i];
             const parsed = JSON.parse(s.textContent || "{}");
             if (parsed["@type"] === "Person" || parsed["@type"] === "Profile") {
               jsonLd = parsed;
@@ -168,38 +174,51 @@ export async function scrapeLinkedInProfile(
         location = getText(locationEl);
 
         // Fallback for Name, Headline, and Location from top card container text
-        const topSection = sections.find((s) => {
+        let topSection: HTMLElement | null = null;
+        for (let i = 0; i < sections.length; i++) {
+          const s = sections[i];
           const text = s.innerText || "";
-          return (
+          if (
             text.includes("followers") ||
             text.includes("connections") ||
             text.includes("Contact info") ||
             s.querySelector("img.pv-top-card-profile-picture__image") !== null
-          );
-        });
+          ) {
+            topSection = s;
+            break;
+          }
+        }
 
         if (topSection) {
-          const lines: string[] = (topSection.innerText || "")
-            .split("\n")
-            .map((l: string) => l.trim())
-            .filter((l: string) => Boolean(l) && !l.includes("notifications") && !l.includes("Premium"));
+          const rawLines = (topSection.innerText || "").split("\n");
+          const lines: string[] = [];
+          for (let i = 0; i < rawLines.length; i++) {
+            const l = rawLines[i].trim();
+            if (l && !l.includes("notifications") && !l.includes("Premium")) {
+              lines.push(l);
+            }
+          }
 
           if (!name && lines.length > 0) name = lines[0];
           if (!headline && lines.length > 1 && !lines[1].includes("Contact info")) headline = lines[1];
 
           if (!location && lines.length > 2) {
-            const subsequentLines = lines.slice(2);
-            const locCandidate = subsequentLines.find(
-              (l: string) =>
-                !l.toLowerCase().includes("contact info") &&
-                !l.toLowerCase().includes("followers") &&
-                !l.toLowerCase().includes("connections") &&
-                !l.toLowerCase().includes("following") &&
-                !l.toLowerCase().includes("connect") &&
-                !l.toLowerCase().includes("message") &&
+            for (let i = 2; i < lines.length; i++) {
+              const l = lines[i];
+              const lLower = l.toLowerCase();
+              if (
+                !lLower.includes("contact info") &&
+                !lLower.includes("followers") &&
+                !lLower.includes("connections") &&
+                !lLower.includes("following") &&
+                !lLower.includes("connect") &&
+                !lLower.includes("message") &&
                 l !== headline
-            );
-            if (locCandidate) location = locCandidate;
+              ) {
+                location = l;
+                break;
+              }
+            }
           }
         }
 
@@ -213,13 +232,20 @@ export async function scrapeLinkedInProfile(
 
         // About section
         let about: string | null = null;
-        const aboutSection =
-          document.querySelector("div#about")?.closest("section") ||
-          document.querySelector("section.pv-about-section") ||
-          sections.find((s) => {
+        let aboutSection: HTMLElement | null =
+          (document.querySelector("div#about")?.closest("section") as HTMLElement) ||
+          (document.querySelector("section.pv-about-section") as HTMLElement);
+
+        if (!aboutSection) {
+          for (let i = 0; i < sections.length; i++) {
+            const s = sections[i];
             const heading = s.querySelector("h2, h3");
-            return heading && heading.textContent?.toLowerCase().trim() === "about";
-          });
+            if (heading && heading.textContent && heading.textContent.toLowerCase().trim() === "about") {
+              aboutSection = s;
+              break;
+            }
+          }
+        }
 
         if (aboutSection) {
           const aboutContentEl =
@@ -229,11 +255,15 @@ export async function scrapeLinkedInProfile(
           about = getText(aboutContentEl);
 
           if (!about) {
-            const textLines: string[] = ((aboutSection as HTMLElement).innerText || "")
-              .split("\n")
-              .map((l: string) => l.trim())
-              .filter((l: string) => Boolean(l) && l.toLowerCase() !== "about");
-            if (textLines.length > 0) about = textLines.join("\n");
+            const rawAboutLines = (aboutSection.innerText || "").split("\n");
+            const cleanAboutLines: string[] = [];
+            for (let i = 0; i < rawAboutLines.length; i++) {
+              const l = rawAboutLines[i].trim();
+              if (l && l.toLowerCase() !== "about") {
+                cleanAboutLines.push(l);
+              }
+            }
+            if (cleanAboutLines.length > 0) about = cleanAboutLines.join("\n");
           }
         }
 
@@ -242,9 +272,10 @@ export async function scrapeLinkedInProfile(
           const idMatch = document.getElementById(keyword.toLowerCase().replace(/[^a-z0-9]/g, "_"));
           if (idMatch) return idMatch.closest("section") as HTMLElement;
 
-          for (const sec of sections) {
+          for (let i = 0; i < sections.length; i++) {
+            const sec = sections[i];
             const heading = sec.querySelector("h2, h3");
-            if (heading && heading.textContent?.toLowerCase().includes(keyword.toLowerCase())) {
+            if (heading && heading.textContent && heading.textContent.toLowerCase().includes(keyword.toLowerCase())) {
               return sec as HTMLElement;
             }
           }
@@ -270,7 +301,8 @@ export async function scrapeLinkedInProfile(
             "ul.pvs-list > li, li.pvs-list__item--line-separated, li.artdeco-list__item"
           );
 
-          listItems.forEach((li) => {
+          for (let i = 0; i < listItems.length; i++) {
+            const li = listItems[i];
             const nestedRoles = li.querySelectorAll("ul.pvs-list > li");
             if (nestedRoles.length > 0) {
               const companyNameEl = li.querySelector(
@@ -278,10 +310,14 @@ export async function scrapeLinkedInProfile(
               );
               const companyName = getText(companyNameEl);
 
-              nestedRoles.forEach((roleLi) => {
-                const spans = Array.from(roleLi.querySelectorAll('span[aria-hidden="true"]'))
-                  .map((s) => s.textContent?.trim())
-                  .filter((s): s is string => Boolean(s));
+              for (let j = 0; j < nestedRoles.length; j++) {
+                const roleLi = nestedRoles[j];
+                const spans: string[] = [];
+                const spanEls = roleLi.querySelectorAll('span[aria-hidden="true"]');
+                for (let k = 0; k < spanEls.length; k++) {
+                  const t = spanEls[k].textContent?.trim();
+                  if (t) spans.push(t);
+                }
 
                 const descEl = roleLi.querySelector(".inline-show-more-text");
                 const description = getText(descEl);
@@ -294,11 +330,14 @@ export async function scrapeLinkedInProfile(
                   description: description || (spans.length > 3 ? spans.slice(3).join("\n") : null),
                   rawTextLines: spans,
                 });
-              });
+              }
             } else {
-              const spans = Array.from(li.querySelectorAll('span[aria-hidden="true"]'))
-                .map((s) => s.textContent?.trim())
-                .filter((s): s is string => Boolean(s));
+              const spans: string[] = [];
+              const spanEls = li.querySelectorAll('span[aria-hidden="true"]');
+              for (let k = 0; k < spanEls.length; k++) {
+                const t = spanEls[k].textContent?.trim();
+                if (t) spans.push(t);
+              }
 
               const descEl = li.querySelector(".inline-show-more-text");
               const description = getText(descEl);
@@ -312,7 +351,7 @@ export async function scrapeLinkedInProfile(
                 rawTextLines: spans,
               });
             }
-          });
+          }
         }
 
         // Education Extraction
@@ -331,10 +370,14 @@ export async function scrapeLinkedInProfile(
             "ul.pvs-list > li, li.pvs-list__item--line-separated, li.artdeco-list__item"
           );
 
-          listItems.forEach((li) => {
-            const spans = Array.from(li.querySelectorAll('span[aria-hidden="true"]'))
-              .map((s) => s.textContent?.trim())
-              .filter((s): s is string => Boolean(s));
+          for (let i = 0; i < listItems.length; i++) {
+            const li = listItems[i];
+            const spans: string[] = [];
+            const spanEls = li.querySelectorAll('span[aria-hidden="true"]');
+            for (let k = 0; k < spanEls.length; k++) {
+              const t = spanEls[k].textContent?.trim();
+              if (t) spans.push(t);
+            }
 
             const descEl = li.querySelector(".inline-show-more-text");
             const description = getText(descEl);
@@ -346,7 +389,7 @@ export async function scrapeLinkedInProfile(
               description: description || (spans.length > 3 ? spans.slice(3).join("\n") : null),
               rawTextLines: spans,
             });
-          });
+          }
         }
 
         // Skills Extraction
@@ -357,15 +400,14 @@ export async function scrapeLinkedInProfile(
             "ul.pvs-list > li, li.pvs-list__item--line-separated, li.artdeco-list__item"
           );
 
-          listItems.forEach((li) => {
-            const spans = Array.from(li.querySelectorAll('span[aria-hidden="true"]'))
-              .map((s) => s.textContent?.trim())
-              .filter((s): s is string => Boolean(s));
-
-            if (spans.length > 0 && spans[0]) {
-              skills.push(spans[0]);
+          for (let i = 0; i < listItems.length; i++) {
+            const li = listItems[i];
+            const spanEl = li.querySelector('span[aria-hidden="true"]');
+            const t = spanEl?.textContent?.trim();
+            if (t) {
+              skills.push(t);
             }
-          });
+          }
         }
 
         // Certifications Extraction
@@ -388,10 +430,14 @@ export async function scrapeLinkedInProfile(
             "ul.pvs-list > li, li.pvs-list__item--line-separated, li.artdeco-list__item"
           );
 
-          listItems.forEach((li) => {
-            const spans = Array.from(li.querySelectorAll('span[aria-hidden="true"]'))
-              .map((s) => s.textContent?.trim())
-              .filter((s): s is string => Boolean(s));
+          for (let i = 0; i < listItems.length; i++) {
+            const li = listItems[i];
+            const spans: string[] = [];
+            const spanEls = li.querySelectorAll('span[aria-hidden="true"]');
+            for (let k = 0; k < spanEls.length; k++) {
+              const t = spanEls[k].textContent?.trim();
+              if (t) spans.push(t);
+            }
 
             const linkEl = li.querySelector("a[href*='credential'], a.optional-action-target") as HTMLAnchorElement | null;
             const credentialUrl = linkEl?.href || null;
@@ -404,7 +450,7 @@ export async function scrapeLinkedInProfile(
               credentialUrl,
               rawTextLines: spans,
             });
-          });
+          }
         }
 
         // Languages Extraction
@@ -420,17 +466,21 @@ export async function scrapeLinkedInProfile(
             "ul.pvs-list > li, li.pvs-list__item--line-separated, li.artdeco-list__item"
           );
 
-          listItems.forEach((li) => {
-            const spans = Array.from(li.querySelectorAll('span[aria-hidden="true"]'))
-              .map((s) => s.textContent?.trim())
-              .filter((s): s is string => Boolean(s));
+          for (let i = 0; i < listItems.length; i++) {
+            const li = listItems[i];
+            const spans: string[] = [];
+            const spanEls = li.querySelectorAll('span[aria-hidden="true"]');
+            for (let k = 0; k < spanEls.length; k++) {
+              const t = spanEls[k].textContent?.trim();
+              if (t) spans.push(t);
+            }
 
             languages.push({
               language: spans[0] || null,
               proficiency: spans[1] || null,
               rawTextLines: spans,
             });
-          });
+          }
         }
 
         return {
