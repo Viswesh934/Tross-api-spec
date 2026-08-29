@@ -5,7 +5,7 @@ import os from "node:os";
 
 // Default configuration
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_SCRAPES || "2", 10);
-const DEFAULT_TIMEOUT = parseInt(process.env.SCRAPE_TIMEOUT_MS || "35000", 10);
+const DEFAULT_TIMEOUT = parseInt(process.env.SCRAPE_TIMEOUT_MS || "40000", 10);
 
 class Semaphore {
   private running = 0;
@@ -45,7 +45,7 @@ class BrowserManager {
   private initPromise: Promise<Browser> | null = null;
 
   /**
-   * Resolve storage state file path either from file path or raw JSON string
+   * Resolve storage state file path either from file path, raw JSON string, or Render secret files
    */
   private getStorageStateOption(): { storageState?: string } {
     const rawState = process.env.LINKEDIN_STORAGE_STATE;
@@ -75,12 +75,19 @@ class BrowserManager {
       }
     }
 
-    // Default fallback check for session.json or linkedin-auth.json in cwd
-    const defaultPaths = ["session.json", "linkedin-auth.json", "storage-state.json"];
+    // Default fallback search paths (including Render /etc/secrets location)
+    const defaultPaths = [
+      "session.json",
+      "linkedin-auth.json",
+      "storage-state.json",
+      "/etc/secrets/session.json",
+      "/etc/secrets/LINKEDIN_STORAGE_STATE",
+    ];
+
     for (const p of defaultPaths) {
-      const resolved = path.resolve(process.cwd(), p);
+      const resolved = path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
       if (fs.existsSync(resolved)) {
-        console.log(`[BrowserManager] Using default storage state file: ${resolved}`);
+        console.log(`[BrowserManager] Using storage state file: ${resolved}`);
         return { storageState: resolved };
       }
     }
