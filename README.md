@@ -61,8 +61,6 @@ flowchart TD
 │   │   ├── client.ts        # Session credential loader & username parser
 │   │   ├── scraper.ts       # Direct Voyager API HTTP fetcher
 │   │   └── parser.ts        # Voyager JSON entity normalizer
-│   ├── fixtures/
-│   │   └── ada-lovelace.json# Offline fixture for instant evaluation
 │   └── schemas/
 │       └── profile.ts       # Request/Response schemas & Zod validation
 ├── test/
@@ -146,7 +144,7 @@ Supports both `GET` (query parameter) and `POST` (JSON body):
 
 #### Using `GET`:
 ```bash
-curl -X GET "http://localhost:3000/v1/profile?url=https://www.linkedin.com/in/williamhgates" \
+curl -X GET "http://localhost:3000/v1/profile?url=https://www.linkedin.com/in/username" \
   -H "x-api-key: test-challenge-api-key-2026"
 ```
 
@@ -155,13 +153,7 @@ curl -X GET "http://localhost:3000/v1/profile?url=https://www.linkedin.com/in/wi
 curl -X POST http://localhost:3000/v1/profile \
   -H "Content-Type: application/json" \
   -H "x-api-key: test-challenge-api-key-2026" \
-  -d '{"url": "https://www.linkedin.com/in/williamhgates"}'
-```
-
-#### Offline Fixture Mode:
-You can test the endpoint without credentials using the bundled fixture:
-```bash
-curl "http://localhost:3000/v1/profile?url=ada-lovelace"
+  -d '{"url": "https://www.linkedin.com/in/username"}'
 ```
 
 **Response (`200 OK`):**
@@ -169,35 +161,35 @@ curl "http://localhost:3000/v1/profile?url=ada-lovelace"
 {
   "success": true,
   "profile": {
-    "url": "https://www.linkedin.com/in/williamhgates",
-    "name": "Bill Gates",
-    "headline": "Chair, Gates Foundation and Founder, Breakthrough Energy",
-    "location": "Seattle, Washington, United States",
-    "about": "Co-chair of the Bill & Melinda Gates Foundation. Founder of Breakthrough Energy. Co-founder of Microsoft.",
+    "url": "https://www.linkedin.com/in/username",
+    "name": "Alex Smith",
+    "headline": "Principal Software Engineer",
+    "location": "San Francisco Bay Area",
+    "about": "Passionate backend engineer building distributed systems.",
     "image": "https://media.licdn.com/dms/image/v2/...",
     "experience": [
       {
-        "title": "Co-chair",
-        "company": "Bill & Melinda Gates Foundation",
+        "title": "Principal Software Engineer",
+        "company": "Cloud Tech Inc",
         "employmentType": "Full-time",
-        "duration": "2000 - Present",
-        "startDate": "2000",
+        "duration": "Jan 2021 - Present",
+        "startDate": "Jan 2021",
         "endDate": "Present",
-        "location": "Seattle, WA",
-        "description": "Guided by the belief that every life has equal value..."
+        "location": "San Francisco, CA",
+        "description": "Leading architecture for high-throughput messaging pipelines."
       }
     ],
     "education": [
       {
-        "school": "Harvard University",
-        "degree": null,
-        "fieldOfStudy": null,
-        "duration": "1973 - 1975",
-        "startDate": "1973",
-        "endDate": "1975"
+        "school": "University of California, Berkeley",
+        "degree": "Bachelor of Science",
+        "fieldOfStudy": "Computer Science",
+        "duration": "2016 - 2020",
+        "startDate": "2016",
+        "endDate": "2020"
       }
     ],
-    "skills": ["Software Development", "Philanthropy", "Global Health"],
+    "skills": ["TypeScript", "Node.js", "Distributed Systems", "PostgreSQL"],
     "certifications": [],
     "languages": [
       {

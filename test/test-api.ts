@@ -27,9 +27,9 @@ async function runTests() {
   // 1. Helper & Client Tests
   console.log("1. Helper & URL Extraction Tests");
   await test("extractUsername correctly extracts handles from URLs", () => {
-    assert.strictEqual(extractUsername("https://www.linkedin.com/in/williamhgates/"), "williamhgates");
-    assert.strictEqual(extractUsername("https://linkedin.com/in/satyanadella?trk=feed"), "satyanadella");
-    assert.strictEqual(extractUsername("ada-lovelace"), "ada-lovelace");
+    assert.strictEqual(extractUsername("https://www.linkedin.com/in/sample-engineer/"), "sample-engineer");
+    assert.strictEqual(extractUsername("https://linkedin.com/in/john-doe?trk=feed"), "john-doe");
+    assert.strictEqual(extractUsername("sample-user"), "sample-user");
   });
 
   await test("formatVoyagerDate formats {year, month} correctly", () => {
@@ -60,11 +60,11 @@ async function runTests() {
       included: [
         {
           $type: "com.linkedin.voyager.dash.identity.profile.Profile",
-          firstName: "Ada",
-          lastName: "Lovelace",
-          headline: "Chief Mathematician & Pioneer",
-          summary: "First computer programmer.",
-          geoLocationName: "London, England, United Kingdom",
+          firstName: "Sample",
+          lastName: "Developer",
+          headline: "Staff Software Engineer",
+          summary: "Passionate about distributed backend systems.",
+          geoLocationName: "San Francisco, California, United States",
           profilePicture: {
             displayImageReference: {
               vectorImage: {
@@ -79,51 +79,51 @@ async function runTests() {
         },
         {
           $type: "com.linkedin.voyager.dash.identity.profile.Position",
-          title: "Principal Engineer",
-          companyName: "Analytical Systems Ltd",
+          title: "Senior Backend Engineer",
+          companyName: "Acme Cloud Corp",
           employmentType: "Full-time",
-          locationName: "London, UK",
-          dateRange: { start: { year: 1842, month: 3 }, end: { year: 1852, month: 11 } },
-          description: "Engine design and notes.",
+          locationName: "San Francisco, CA",
+          dateRange: { start: { year: 2021, month: 1 }, end: { year: 2024, month: 6 } },
+          description: "Architected microservices using TypeScript and Node.js.",
         },
         {
           $type: "com.linkedin.voyager.dash.identity.profile.Education",
-          schoolName: "University of London",
-          degreeName: "Hon. Doctorate",
-          fieldOfStudy: "Mathematics",
-          dateRange: { start: { year: 1832 }, end: { year: 1840 } },
+          schoolName: "California Institute of Technology",
+          degreeName: "Bachelor of Science",
+          fieldOfStudy: "Computer Science",
+          dateRange: { start: { year: 2016 }, end: { year: 2020 } },
         },
         {
           $type: "com.linkedin.voyager.dash.identity.profile.Skill",
-          name: "Algorithmic Design",
+          name: "TypeScript",
         },
         {
           $type: "com.linkedin.voyager.dash.identity.profile.Certification",
-          name: "Taylor Scientific Translation",
-          authority: "Scientific Memoirs",
-          timePeriod: { start: { year: 1843, month: 1 } },
-          licenseNumber: "MEMOIR-001",
+          name: "AWS Certified Solutions Architect",
+          authority: "Amazon Web Services",
+          timePeriod: { start: { year: 2023, month: 5 } },
+          licenseNumber: "AWS-12345",
         },
         {
           $type: "com.linkedin.voyager.dash.identity.profile.Language",
-          name: "French",
-          proficiency: "Professional working",
+          name: "English",
+          proficiency: "Native or bilingual",
         },
       ],
     };
 
-    const res = parseVoyagerResponse(mockPayload, "https://www.linkedin.com/in/ada-lovelace");
-    assert.strictEqual(res.name, "Ada Lovelace");
-    assert.strictEqual(res.headline, "Chief Mathematician & Pioneer");
-    assert.strictEqual(res.location, "London, England, United Kingdom");
+    const res = parseVoyagerResponse(mockPayload, "https://www.linkedin.com/in/sample-developer");
+    assert.strictEqual(res.name, "Sample Developer");
+    assert.strictEqual(res.headline, "Staff Software Engineer");
+    assert.strictEqual(res.location, "San Francisco, California, United States");
     assert.strictEqual(res.image, "https://media.licdn.com/dms/image/v2/test/400.jpg");
     assert.strictEqual(res.experience.length, 1);
-    assert.strictEqual(res.experience[0].title, "Principal Engineer");
-    assert.strictEqual(res.experience[0].duration, "Mar 1842 - Nov 1852");
+    assert.strictEqual(res.experience[0].title, "Senior Backend Engineer");
+    assert.strictEqual(res.experience[0].duration, "Jan 2021 - Jun 2024");
     assert.strictEqual(res.education.length, 1);
-    assert.strictEqual(res.education[0].school, "University of London");
+    assert.strictEqual(res.education[0].school, "California Institute of Technology");
     assert.strictEqual(res.skills.length, 1);
-    assert.strictEqual(res.skills[0], "Algorithmic Design");
+    assert.strictEqual(res.skills[0], "TypeScript");
     assert.strictEqual(res.certifications.length, 1);
     assert.strictEqual(res.languages.length, 1);
   });
@@ -132,11 +132,11 @@ async function runTests() {
   console.log("\n3. Schema & URL Validation Tests");
   await test("ProfileRequestSchema accepts valid LinkedIn profile URLs", () => {
     const validUrls = [
-      "https://www.linkedin.com/in/williamhgates/",
-      "https://linkedin.com/in/satyanadella",
+      "https://www.linkedin.com/in/sample-developer/",
+      "https://linkedin.com/in/user-name",
       "https://uk.linkedin.com/in/john-doe-123456",
       "https://www.linkedin.com/in/user_name?trackingId=123",
-      "ada-lovelace",
+      "sample-handle",
     ];
 
     for (const url of validUrls) {
@@ -185,26 +185,17 @@ async function runTests() {
     assert.strictEqual(body.service, "linkedin-profile-api");
   });
 
-  await test("GET /v1/profile with fixture URL returns 200 profile response", async () => {
-    const res = await app.request("/v1/profile?url=https://www.linkedin.com/in/ada-lovelace");
-    assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.success, true);
-    assert.strictEqual(body.profile.name, "Ada Lovelace");
-    assert.strictEqual(body.profile.experience.length, 1);
-  });
-
-  await test("POST /api/demo with fixture URL returns 200", async () => {
-    const res = await app.request("/api/demo", {
+  await test("POST /v1/profile with invalid URL returns 400 Bad Request", async () => {
+    const res = await app.request("/v1/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: "https://www.linkedin.com/in/ada-lovelace" }),
+      body: JSON.stringify({ url: "https://example.com/not-linkedin" }),
     });
 
-    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.status, 400);
     const body = await res.json();
-    assert.strictEqual(body.success, true);
-    assert.strictEqual(body.profile.name, "Ada Lovelace");
+    assert.strictEqual(body.success, false);
+    assert.strictEqual(body.error, "Validation failed");
   });
 
   await test("POST /v1/profile rejects request when API_KEY is set and header is missing", async () => {
@@ -213,7 +204,7 @@ async function runTests() {
     const res = await app.request("/v1/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: "https://www.linkedin.com/in/ada-lovelace" }),
+      body: JSON.stringify({ url: "https://www.linkedin.com/in/sample-user/" }),
     });
 
     assert.strictEqual(res.status, 401);

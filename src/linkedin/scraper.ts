@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { getLinkedInCredentials, extractUsername } from "./client.js";
 import { parseVoyagerResponse } from "./parser.js";
 import type { LinkedInProfile } from "../schemas/profile.js";
@@ -25,24 +23,7 @@ export async function scrapeLinkedInProfile(
   const username = extractUsername(profileUrl);
   console.log(`[VoyagerClient] Fetching profile for member: ${username} (${profileUrl})`);
 
-  // 1. Check for built-in sample/fixture demo
-  if (
-    process.env.FETCH_MODE === "fixture" ||
-    username.toLowerCase().includes("ada-lovelace") ||
-    username.toLowerCase() === "demo"
-  ) {
-    console.log(`[VoyagerClient] Returning fixture for: ${username}`);
-    const fixturePath = path.resolve(process.cwd(), "src/fixtures/ada-lovelace.json");
-    if (fs.existsSync(fixturePath)) {
-      const fixtureData = JSON.parse(fs.readFileSync(fixturePath, "utf-8"));
-      return {
-        ...fixtureData,
-        url: profileUrl,
-      };
-    }
-  }
-
-  // 2. Load LinkedIn session credentials
+  // Load LinkedIn session credentials
   const { li_at, jsessionid } = getLinkedInCredentials();
 
   if (!li_at) {
@@ -53,7 +34,7 @@ export async function scrapeLinkedInProfile(
     );
   }
 
-  // 3. Construct Voyager API request
+  // Construct Voyager API request
   const voyagerUrl = `https://www.linkedin.com/voyager/api/identity/dash/profiles?q=memberIdentity&memberIdentity=${encodeURIComponent(
     username
   )}&decorationId=com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93`;

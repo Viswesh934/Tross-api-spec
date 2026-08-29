@@ -1,85 +1,115 @@
 openapi: 3.1.0
 info:
-  title: LinkedIn Profile Scraper API
+  title: LinkedIn Profile API
   version: 1.0.0
-  description: A fast, structured REST API for extracting standardized LinkedIn profile data using Hono, Playwright, and TypeScript.
-  contact:
-    name: API Support
-    url: https://github.com/Viswesh934/Tross-api-spec
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+  description: A fast, structured, pure HTTP API that extracts structured profile information from LinkedIn's internal Voyager REST API (No browser, no Playwright).
 servers:
   - url: /
-    description: Current Host
-  - url: http://localhost:3000
-    description: Local Development Server
-
+    description: Current environment
 paths:
   /health:
     get:
       summary: Health Check
-      description: Returns service readiness, timestamp, and active configuration.
-      operationId: getHealth
+      description: Returns the health status of the service.
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
-
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: linkedin-profile-api
+                  timestamp:
+                    type: string
+                    example: "2026-08-29T18:00:00.000Z"
   /v1/profile:
-    post:
-      summary: Scrape LinkedIn Profile
-      description: Extracts and normalizes profile data from a LinkedIn profile URL.
-      operationId: scrapeProfile
+    get:
+      summary: Fetch LinkedIn Profile (Query Param)
+      description: Fetches a LinkedIn profile via query parameter 'url'.
       security:
-        - ApiKeyHeader: []
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          description: LinkedIn profile URL or member handle
+          schema:
+            type: string
+            example: https://www.linkedin.com/in/username/
+      responses:
+        "200":
+          description: Profile successfully fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileSuccessResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileErrorResponse"
+        "401":
+          description: Unauthorized or session required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileErrorResponse"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileErrorResponse"
+    post:
+      summary: Fetch LinkedIn Profile (JSON Body)
+      description: Fetches and parses a LinkedIn profile using LinkedIn's internal Voyager REST API.
+      security:
+        - ApiKeyAuth: []
         - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProfileRequest'
+              $ref: "#/components/schemas/ProfileRequest"
             example:
-              url: "https://www.linkedin.com/in/mark-zuckerberg-618bba58/"
+              url: https://www.linkedin.com/in/username/
       responses:
-        '200':
-          description: Successful extraction
+        "200":
+          description: Profile successfully fetched
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProfileSuccessResponse'
-        '400':
-          description: Invalid request or malformed URL
+                $ref: "#/components/schemas/ProfileSuccessResponse"
+        "400":
+          description: Validation failed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
+                $ref: "#/components/schemas/ProfileErrorResponse"
+        "401":
+          description: Unauthorized or session required
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ProfileErrorResponse"
+        "404":
           description: Profile not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Scraping error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ProfileErrorResponse"
 components:
   securitySchemes:
-    ApiKeyHeader:
+    ApiKeyAuth:
       type: apiKey
       in: header
       name: x-api-key
@@ -87,27 +117,6 @@ components:
       type: http
       scheme: bearer
   schemas:
-    HealthResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: healthy
-        service:
-          type: string
-          example: linkedin-profile-api
-        timestamp:
-          type: string
-          format: date-time
-        config:
-          type: object
-          properties:
-            storageStateConfigured:
-              type: boolean
-            apiKeyConfigured:
-              type: boolean
-            maxConcurrency:
-              type: integer
     ProfileRequest:
       type: object
       required:
@@ -115,8 +124,70 @@ components:
       properties:
         url:
           type: string
-          format: uri
-          example: "https://www.linkedin.com/in/williamhgates/"
+          example: https://www.linkedin.com/in/username/
+    ProfileSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        profile:
+          $ref: "#/components/schemas/LinkedInProfile"
+    ProfileErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+    LinkedInProfile:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://www.linkedin.com/in/username/
+        name:
+          type: string
+          nullable: true
+        headline:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        about:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        experience:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileExperience"
+        education:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileEducation"
+        skills:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileCertification"
+        languages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileLanguage"
     ProfileExperience:
       type: object
       properties:
@@ -198,78 +269,3 @@ components:
         proficiency:
           type: string
           nullable: true
-    LinkedInProfile:
-      type: object
-      required:
-        - url
-        - experience
-        - education
-        - skills
-        - certifications
-        - languages
-      properties:
-        url:
-          type: string
-        name:
-          type: string
-          nullable: true
-        headline:
-          type: string
-          nullable: true
-        location:
-          type: string
-          nullable: true
-        about:
-          type: string
-          nullable: true
-        image:
-          type: string
-          nullable: true
-        experience:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProfileExperience'
-        education:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProfileEducation'
-        skills:
-          type: array
-          items:
-            type: string
-        certifications:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProfileCertification'
-        languages:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProfileLanguage'
-    ProfileSuccessResponse:
-      type: object
-      required:
-        - success
-        - profile
-      properties:
-        success:
-          type: boolean
-          example: true
-        profile:
-          $ref: '#/components/schemas/LinkedInProfile'
-    ErrorResponse:
-      type: object
-      required:
-        - success
-        - error
-      properties:
-        success:
-          type: boolean
-          example: false
-        error:
-          type: string
-        code:
-          type: string
-        details:
-          type: array
-          items:
-            type: object

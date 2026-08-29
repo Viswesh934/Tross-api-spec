@@ -1,136 +1,113 @@
-# LinkedIn Profile API — Specification & Demo Guide
+# LinkedIn Profile API - Technical Specification
 
-This document contains the complete REST API specification, OpenAPI definitions, response schemas, and interactive demo instructions for evaluators and the hiring team.
+## Overview
 
----
+The **LinkedIn Profile API** is a high-performance, reverse-engineered HTTP service built with **Hono**, **TypeScript**, and **Node.js**.
 
-## 🎯 Overview
-
-- **Base URL (Local)**: `http://localhost:3000`
-- **Interactive UI & Playground**: `http://localhost:3000/docs` (or `http://localhost:3000/`)
-- **OpenAPI 3.1 Spec (JSON)**: `http://localhost:3000/openapi.json`
-- **OpenAPI 3.1 Spec (YAML)**: [`./openapi.yaml`](./openapi.yaml)
+It directly interfaces with LinkedIn's internal **Voyager REST API** (`/voyager/api/identity/dash/profiles`) using standard authenticated HTTP requests (**Pure HTTP, no browser / no Playwright / no Chromium**).
 
 ---
 
-## 🎮 Interactive Live Demo Playground
+## Authentication & Security
 
-The API includes a built-in interactive web UI and OpenAPI/Swagger explorer:
-
-1. Start the server: `npm start`
-2. Open **[http://localhost:3000/docs](http://localhost:3000/docs)** in any web browser.
-3. You can:
-   - Use the **Interactive Live Demo** to paste any LinkedIn URL, enter the API key, and test scraping with one click.
-   - Explore the **Swagger UI** with full schemas, response codes, and curl snippets.
-   - Inspect or download the raw **OpenAPI 3.1 JSON / YAML** specification.
+1. **API Key Authentication**:
+   - Clients must provide a valid API key via `x-api-key: <key>` or `Authorization: Bearer <key>` when `API_KEY` is configured in the environment.
+2. **LinkedIn Session Authentication**:
+   - The service authenticates with LinkedIn via the `li_at` cookie and `csrf-token` header loaded from `LINKEDIN_LI_AT`, `LINKEDIN_STORAGE_STATE`, or secret files (e.g. `/etc/secrets/session.json`).
 
 ---
 
-## 🔑 Authentication
-
-Protected endpoints require an API Key supplied via either:
-- **Header**: `x-api-key: <YOUR_API_KEY>`
-- **Authorization Header**: `Authorization: Bearer <YOUR_API_KEY>`
-
----
-
-## 📡 Endpoints
+## Endpoints
 
 ### 1. Health Check
-Checks service health, Playwright browser readiness, and configuration state.
-
-- **Method**: `GET`
-- **Path**: `/health`
-- **Authentication**: None required
-
-#### Example Request:
-```bash
-curl -X GET http://localhost:3000/health
-```
-
-#### Example Response (`200 OK`):
-```json
-{
-  "status": "healthy",
-  "service": "linkedin-profile-api",
-  "timestamp": "2026-08-29T17:35:00.000Z",
-  "config": {
-    "storageStateConfigured": true,
-    "apiKeyConfigured": true,
-    "maxConcurrency": 2
+* **Method**: `GET`
+* **Path**: `/health`
+* **Response (`200 OK`)**:
+  ```json
+  {
+    "status": "healthy",
+    "service": "linkedin-profile-api",
+    "timestamp": "2026-08-29T18:00:00.000Z"
   }
-}
-```
+  ```
 
 ---
 
-### 2. Scrape Profile
-Extracts and normalizes public and authenticated profile data from a LinkedIn profile URL.
+### 2. Fetch Profile (Query Parameter)
+* **Method**: `GET`
+* **Path**: `/v1/profile?url=https://www.linkedin.com/in/username/`
+* **Headers**: `x-api-key: <API_KEY>`
 
-- **Method**: `POST`
-- **Path**: `/v1/profile`
-- **Authentication**: `x-api-key: <API_KEY>` or `Authorization: Bearer <API_KEY>`
-- **Headers**: `Content-Type: application/json`
+---
 
-#### Request Body Schema:
-```json
-{
-  "url": "https://www.linkedin.com/in/username/"
-}
-```
+### 3. Fetch Profile (JSON Body)
+* **Method**: `POST`
+* **Path**: `/v1/profile`
+* **Headers**: `Content-Type: application/json`, `x-api-key: <API_KEY>`
+* **Request Body**:
+  ```json
+  {
+    "url": "https://www.linkedin.com/in/username/"
+  }
+  ```
 
-#### Example Request:
-```bash
-curl -X POST http://localhost:3000/v1/profile \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: test-challenge-api-key-2026" \
-  -d '{"url": "https://www.linkedin.com/in/williamhgates/"}'
-```
+---
 
-#### Success Response (`200 OK`):
+### 4. Target Response Contract
+
 ```json
 {
   "success": true,
   "profile": {
-    "url": "https://www.linkedin.com/in/williamhgates/",
-    "name": "Bill Gates",
-    "headline": "Chair, Gates Foundation and Founder, Breakthrough Energy",
-    "location": "Seattle, Washington, United States",
-    "about": "Chair of the Gates Foundation. Founder of Breakthrough Energy. Co-founder of Microsoft.",
-    "image": "https://media.licdn.com/dms/image/v2/D4E03AQEK3mRQ8nO4rA/profile-displayphoto-scale_100_100/...",
+    "url": "https://www.linkedin.com/in/username/",
+    "name": "Alex Smith",
+    "headline": "Principal Software Engineer",
+    "location": "San Francisco Bay Area",
+    "about": "Passionate backend engineer building distributed systems.",
+    "image": "https://media.licdn.com/dms/image/v2/...",
     "experience": [
       {
-        "title": "Co-chair",
-        "company": "Bill & Melinda Gates Foundation",
+        "title": "Principal Software Engineer",
+        "company": "Cloud Tech Inc",
         "employmentType": "Full-time",
-        "duration": "2000 - Present · 26 yrs",
-        "startDate": "2000",
+        "duration": "Jan 2021 - Present",
+        "startDate": "Jan 2021",
         "endDate": "Present",
-        "location": "Seattle, WA",
-        "description": "Guiding global health and development initiatives."
+        "location": "San Francisco, CA",
+        "description": "Leading architecture for high-throughput messaging pipelines."
       }
     ],
     "education": [
       {
-        "school": "Harvard University",
-        "degree": null,
-        "fieldOfStudy": "Pre-law & Computer Science",
-        "duration": "1973 - 1975",
-        "startDate": "1973",
-        "endDate": "1975",
+        "school": "University of California, Berkeley",
+        "degree": "Bachelor of Science",
+        "fieldOfStudy": "Computer Science",
+        "duration": "2016 - 2020",
+        "startDate": "2016",
+        "endDate": "2020",
         "description": null
       }
     ],
     "skills": [
-      "Software Engineering",
-      "Philanthropy",
-      "Strategic Planning"
+      "TypeScript",
+      "Node.js",
+      "Distributed Systems",
+      "PostgreSQL"
     ],
-    "certifications": [],
+    "certifications": [
+      {
+        "name": "AWS Certified Solutions Architect - Professional",
+        "issuer": "Amazon Web Services (AWS)",
+        "issueDate": "Jan 2023",
+        "expirationDate": null,
+        "credentialId": "AWS-CERT-987654",
+        "credentialUrl": null
+      }
+    ],
     "languages": [
       {
         "language": "English",
-        "proficiency": "Native or bilingual proficiency"
+        "proficiency": "Native or bilingual"
       }
     ]
   }
@@ -139,20 +116,24 @@ curl -X POST http://localhost:3000/v1/profile \
 
 ---
 
-## 🛑 Error Responses
+## Error Handling
 
-| Status Code | Description | Example Payload |
+All errors return JSON with HTTP status codes:
+
+```json
+{
+  "success": false,
+  "error": "LinkedIn profile 'invalid-user' was not found.",
+  "code": "PROFILE_NOT_FOUND"
+}
+```
+
+| HTTP Status | Code | Description |
 |---|---|---|
-| `400 Bad Request` | Invalid payload or non-LinkedIn URL | `{"success": false, "error": "Validation failed", "details": [...]}` |
-| `401 Unauthorized` | Missing or invalid API key | `{"success": false, "error": "Unauthorized: Missing or invalid API key"}` |
-| `404 Not Found` | Profile does not exist | `{"success": false, "error": "LinkedIn profile not found", "code": "PROFILE_NOT_FOUND"}` |
-| `500 Server Error` | Scraper or runtime issue | `{"success": false, "error": "Scraping failed: ...", "code": "SCRAPE_FAILED"}` |
-| `504 Gateway Timeout` | LinkedIn page took too long | `{"success": false, "error": "Timeout while scraping profile", "code": "TIMEOUT"}` |
-
----
-
-## 📋 Schema Rules & Guarantees
-
-1. **No Invented Data**: If a field is not present on the profile, it is returned as `null`.
-2. **Deterministic Arrays**: Absent sections (e.g. no certifications listed) always return empty arrays (`[]`), never `null` or `undefined`.
-3. **Deduplication**: Extracted skills and languages are trimmed and deduplicated.
+| `400` | `VALIDATION_FAILED` | Malformed URL or missing request parameters |
+| `401` | `UNAUTHORIZED` | Missing or invalid `x-api-key` header |
+| `401` | `SESSION_EXPIRED` | LinkedIn session cookie expired |
+| `401` | `SESSION_CHALLENGED`| LinkedIn verification checkpoint triggered |
+| `404` | `PROFILE_NOT_FOUND` | Member profile not found on LinkedIn |
+| `429` | `RATE_LIMITED` | LinkedIn rate limit exceeded |
+| `500` | `REQUEST_FAILED` | Unexpected internal upstream error |

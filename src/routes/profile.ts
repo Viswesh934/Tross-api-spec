@@ -97,7 +97,7 @@ profileRoute.get("/", async (c) => {
     return c.json(
       {
         success: false,
-        error: "Missing 'url' query parameter. Example: /v1/profile?url=https://www.linkedin.com/in/williamhgates",
+        error: "Missing 'url' query parameter. Example: /v1/profile?url=https://www.linkedin.com/in/username",
       },
       400
     );
